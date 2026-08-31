@@ -27,7 +27,7 @@ As I continue deepening my hands-on experience in **Data Science & Cloud Data En
 
 💡 **Key Takeaway:** Real-world data science is deeply connected to solid data engineering. Understanding how data moves through Bronze, Silver, and Gold layers ensures that ML models consume reliable, high-quality feature stores.
 
-🔗 **GitHub Repository:** [Insert your GitHub Repo Link Here]
+🔗 **GitHub Repository:** https://github.com/Rajapakshaminindu/ecommerce-medallion-lakehouse.
 
 I’d love to hear your thoughts and feedback! 🙌
 
