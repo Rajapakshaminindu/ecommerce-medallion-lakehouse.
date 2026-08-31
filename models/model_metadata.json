@@ -1,0 +1,98 @@
+{
+    "metrics": {
+        "accuracy": 0.9867,
+        "precision": 0.9375,
+        "recall": 1.0,
+        "f1_score": 0.9677,
+        "roc_auc": 1.0,
+        "cv_roc_auc_mean": 1.0,
+        "cv_roc_auc_std": 0.0,
+        "total_samples": 299,
+        "train_samples": 224,
+        "test_samples": 75
+    },
+    "feature_importance": [
+        {
+            "feature": "recency_days",
+            "importance": 0.5856
+        },
+        {
+            "feature": "return_rate_pct",
+            "importance": 0.0791
+        },
+        {
+            "feature": "frequency",
+            "importance": 0.0658
+        },
+        {
+            "feature": "total_units_purchased",
+            "importance": 0.0614
+        },
+        {
+            "feature": "total_monetary_spend",
+            "importance": 0.0591
+        },
+        {
+            "feature": "avg_order_value",
+            "importance": 0.0405
+        },
+        {
+            "feature": "customer_tenure_days",
+            "importance": 0.0355
+        },
+        {
+            "feature": "customer_age",
+            "importance": 0.0342
+        },
+        {
+            "feature": "loyalty_tier_Silver",
+            "importance": 0.0066
+        },
+        {
+            "feature": "loyalty_tier_Regular",
+            "importance": 0.006
+        },
+        {
+            "feature": "region_Central",
+            "importance": 0.0057
+        },
+        {
+            "feature": "loyalty_tier_Platinum",
+            "importance": 0.0044
+        },
+        {
+            "feature": "region_Southern",
+            "importance": 0.0042
+        },
+        {
+            "feature": "region_Northern",
+            "importance": 0.0035
+        },
+        {
+            "feature": "region_Western",
+            "importance": 0.0032
+        },
+        {
+            "feature": "loyalty_tier_Gold",
+            "importance": 0.0031
+        },
+        {
+            "feature": "region_North Western",
+            "importance": 0.0021
+        }
+    ],
+    "numeric_features": [
+        "frequency",
+        "total_monetary_spend",
+        "avg_order_value",
+        "total_units_purchased",
+        "return_rate_pct",
+        "recency_days",
+        "customer_tenure_days",
+        "customer_age"
+    ],
+    "categorical_features": [
+        "region",
+        "loyalty_tier"
+    ]
+}

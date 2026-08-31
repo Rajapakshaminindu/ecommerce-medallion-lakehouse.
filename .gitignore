@@ -1,0 +1,22 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.venv/
+env/
+venv/
+ENV/
+
+# Data outputs (optional: keep schemas, ignore large batch dumps if needed)
+data/lakehouse/
+data/raw_source/
+models/*.joblib
+models/*.pkl
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+*.log
