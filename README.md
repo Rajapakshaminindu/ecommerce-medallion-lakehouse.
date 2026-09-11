@@ -1,4 +1,4 @@
-# ⚡ E-Commerce Medallion Lakehouse & Machine Learning Pipeline
+# ⚡ E-Commerce Medallion Lakehouse & Machine Learning Pipeline!
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg?logo=python&logoColor=white)](https://python.org)
 [![Architecture](https://img.shields.io/badge/Architecture-Medallion%20(ELT)-orange.svg)](https://www.databricks.com/glossary/medallion-architecture)
