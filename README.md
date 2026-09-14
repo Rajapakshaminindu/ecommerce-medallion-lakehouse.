@@ -1,5 +1,6 @@
 # ⚡ E-Commerce Medallion Lakehouse & Machine Learning Pipeline!
 
+[![CI Pipeline](https://github.com/Rajapakshaminindu/ecommerce-medallion-lakehouse./actions/workflows/ci.yml/badge.svg)](https://github.com/Rajapakshaminindu/ecommerce-medallion-lakehouse./actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg?logo=python&logoColor=white)](https://python.org)
 [![Architecture](https://img.shields.io/badge/Architecture-Medallion%20(ELT)-orange.svg)](https://www.databricks.com/glossary/medallion-architecture)
 [![Machine Learning](https://img.shields.io/badge/ML-Scikit--Learn-brightgreen.svg?logo=scikitlearn&logoColor=white)](https://scikit-learn.org)
