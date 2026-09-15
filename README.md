@@ -87,7 +87,14 @@ pip install -r requirements.txt
 ### 3. Execute the Lakehouse Pipeline (CLI)
 Run the full ELT pipeline from scratch (generates data, executes Bronze ➔ Silver ➔ Gold, and trains the ML model):
 ```bash
+# Default run (generates 300 customers, 2000 orders)
 python src/run_pipeline.py
+
+# Custom volume with deterministic random seed
+python src/run_pipeline.py --customers 500 --orders 5000 --seed 123
+
+# Run pipeline transformations only on existing raw data
+python src/run_pipeline.py --skip-generation
 ```
 
 ### 4. Run Automated Unit Tests
