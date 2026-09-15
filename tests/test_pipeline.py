@@ -12,6 +12,7 @@ from src.pipeline_silver import SilverPipeline
 from src.pipeline_gold import GoldPipeline
 from src.ml_model import CustomerChurnMLModel
 from src.data_generator import generate_synthetic_dataset
+from src.run_pipeline import parse_args
 
 class TestMedallionPipeline(unittest.TestCase):
     @classmethod
@@ -92,6 +93,31 @@ class TestMedallionPipeline(unittest.TestCase):
         self.assertGreaterEqual(res["churn_risk_probability"], 0.0)
         self.assertLessEqual(res["churn_risk_probability"], 1.0)
         self.assertIn(res["is_churn_risk"], [0, 1])
+
+    def test_cli_argument_parsing(self):
+        """Test CLI arguments parser for pipeline orchestrator."""
+        # 1. Default arguments
+        args_default = parse_args([])
+        self.assertEqual(args_default.customers, 300)
+        self.assertEqual(args_default.orders, 2000)
+        self.assertEqual(args_default.seed, 42)
+        self.assertFalse(args_default.skip_generation)
+        self.assertIsNone(args_data_dir := args_default.output_dir)
+
+        # 2. Custom flag arguments
+        custom_args = [
+            "--customers", "500",
+            "--orders", "3500",
+            "--seed", "99",
+            "--skip-generation",
+            "--output-dir", "custom_data_path"
+        ]
+        args_custom = parse_args(custom_args)
+        self.assertEqual(args_custom.customers, 500)
+        self.assertEqual(args_custom.orders, 3500)
+        self.assertEqual(args_custom.seed, 99)
+        self.assertTrue(args_custom.skip_generation)
+        self.assertEqual(args_custom.output_dir, "custom_data_path")
 
 if __name__ == "__main__":
     unittest.main()
