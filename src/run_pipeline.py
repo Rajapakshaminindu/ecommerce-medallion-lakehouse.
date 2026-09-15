@@ -16,7 +16,7 @@ from src.data_generator import generate_synthetic_dataset
 from src.pipeline_bronze import BronzePipeline
 from src.pipeline_silver import SilverPipeline
 from src.pipeline_gold import GoldPipeline
-from src.ml_model import CustomerChurnMLModel
+from src.ml_model import CustomerChurnMLModel, CustomerLTVMLModel
 
 def run_full_lakehouse_pipeline(generate_fresh_data: bool = True):
     start_time = time.time()
@@ -53,9 +53,12 @@ def run_full_lakehouse_pipeline(generate_fresh_data: bool = True):
     gold.run()
 
     # Step 4: Machine Learning Training & Evaluation
-    print("\n[Step 4/4] Training Customer Churn ML Model from Gold Feature Store...")
-    ml = CustomerChurnMLModel(gold_dir, models_dir)
-    metrics = ml.train_and_evaluate()
+    print("\n[Step 4/4] Training Customer Churn & LTV ML Models from Gold Feature Store...")
+    churn_ml = CustomerChurnMLModel(gold_dir, models_dir)
+    churn_metrics = churn_ml.train_and_evaluate()
+
+    ltv_ml = CustomerLTVMLModel(gold_dir, models_dir)
+    ltv_metrics = ltv_ml.train_and_evaluate()
 
     elapsed = round(time.time() - start_time, 2)
     print("\n" + "=" * 65)
@@ -64,13 +67,19 @@ def run_full_lakehouse_pipeline(generate_fresh_data: bool = True):
     print(f" - Bronze Orders Ingested : {bronze_summary['orders']['orders']}")
     print(f" - Silver Cleaned Orders  : {silver_summary['clean_silver_rows']}")
     print(f" - Data Quality Pass Rate : {silver_summary['quality_pass_rate_pct']}%")
-    print(f" - ML Model ROC-AUC Score : {metrics['roc_auc']}")
+    print(f" - ML Churn ROC-AUC Score : {churn_metrics['roc_auc']}")
+    print(f" - ML LTV Regressor R2    : {ltv_metrics['r2_score']}")
     print("=" * 65 + "\n")
 
     return {
         "bronze": bronze_summary,
         "silver": silver_summary,
-        "ml_metrics": metrics,
+        "ml_metrics": {
+            "churn": churn_metrics,
+            "ltv": ltv_metrics,
+            "roc_auc": churn_metrics["roc_auc"],
+            "ltv_r2": ltv_metrics["r2_score"]
+        },
         "elapsed_seconds": elapsed
     }
 
