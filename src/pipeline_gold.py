@@ -98,12 +98,49 @@ class GoldPipeline:
         spend_75th = cust_rfm["total_monetary_spend"].quantile(0.75)
         cust_rfm["is_high_value"] = np.where(cust_rfm["total_monetary_spend"] >= spend_75th, 1, 0)
 
+        # 3. Customer Lifetime Value (LTV) metric
+        cust_rfm["customer_ltv"] = cust_rfm["total_monetary_spend"].round(2)
+
         cust_rfm["_gold_updated_at"] = datetime.now(timezone.utc).isoformat()
 
         target_path = os.path.join(self.gold_dir, "gold_customer_ml_feature_store.parquet")
         cust_rfm.to_parquet(target_path, index=False)
         print(f"[Gold ML Feature Store] Customer Features: {len(cust_rfm)} customer vectors -> {target_path}")
         return cust_rfm
+
+    def generate_cohort_retention_matrix(self, df_orders: pd.DataFrame):
+        """
+        Builds a monthly cohort retention matrix tracking customer retention over time.
+        Cohorts are defined by customer acquisition month (first order).
+        """
+        df = df_orders.copy()
+        customer_first_order = df.groupby("customer_id")["order_date"].min().reset_index()
+        customer_first_order["cohort_month"] = customer_first_order["order_date"].dt.to_period("M")
+        customer_first_order = customer_first_order[["customer_id", "cohort_month"]]
+
+        df = df.merge(customer_first_order, on="customer_id", how="left")
+        df["order_month"] = df["order_date"].dt.to_period("M")
+
+        df["period_number"] = (
+            (df["order_month"].dt.year - df["cohort_month"].dt.year) * 12 +
+            (df["order_month"].dt.month - df["cohort_month"].dt.month)
+        )
+
+        cohort_data = df.groupby(["cohort_month", "period_number"])["customer_id"].nunique().reset_index()
+        cohort_data.rename(columns={"customer_id": "active_customers"}, inplace=True)
+
+        cohort_sizes = cohort_data[cohort_data["period_number"] == 0][["cohort_month", "active_customers"]]
+        cohort_sizes.rename(columns={"active_customers": "cohort_size"}, inplace=True)
+
+        cohort_df = cohort_data.merge(cohort_sizes, on="cohort_month", how="left")
+        cohort_df["retention_rate_pct"] = round((cohort_df["active_customers"] / cohort_df["cohort_size"]) * 100.0, 2)
+        cohort_df["cohort_month"] = cohort_df["cohort_month"].astype(str)
+        cohort_df["_gold_updated_at"] = datetime.now(timezone.utc).isoformat()
+
+        target_path = os.path.join(self.gold_dir, "gold_cohort_retention.parquet")
+        cohort_df.to_parquet(target_path, index=False)
+        print(f"[Gold KPI] Cohort Retention Matrix: {len(cohort_df)} cohort-period rows -> {target_path}")
+        return cohort_df
 
     def run(self):
         print("\n==========================================")
@@ -114,6 +151,7 @@ class GoldPipeline:
 
         self.generate_daily_kpis(df_orders)
         self.generate_category_kpis(df_orders)
+        self.generate_cohort_retention_matrix(df_orders)
         self.generate_customer_ml_feature_store(df_orders)
         print("[SUCCESS] Gold Layer Aggregations Complete.\n")
 

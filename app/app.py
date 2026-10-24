@@ -31,7 +31,7 @@ GOLD_DIR = os.path.join(BASE_DIR, "data", "lakehouse", "gold")
 MODELS_DIR = os.path.join(BASE_DIR, "models")
 
 from src.run_pipeline import run_full_lakehouse_pipeline
-from src.ml_model import CustomerChurnMLModel
+from src.ml_model import CustomerChurnMLModel, CustomerLTVMLModel
 
 # Custom CSS for modern styling
 st.markdown("""
@@ -219,7 +219,12 @@ with tab2:
         st.dataframe(df_view.head(50), use_container_width=True)
 
     else:
-        table_pick = st.selectbox("Select Gold Table:", ["gold_kpi_daily_revenue.parquet", "gold_kpi_category_performance.parquet", "gold_customer_ml_feature_store.parquet"])
+        table_pick = st.selectbox("Select Gold Table:", [
+            "gold_kpi_daily_revenue.parquet",
+            "gold_kpi_category_performance.parquet",
+            "gold_customer_ml_feature_store.parquet",
+            "gold_cohort_retention.parquet"
+        ])
         df_view = pd.read_parquet(os.path.join(GOLD_DIR, table_pick))
         st.markdown(f"**Viewing `{table_pick}`** ({len(df_view)} rows, {len(df_view.columns)} columns)")
         st.dataframe(df_view.head(50), use_container_width=True)
@@ -269,24 +274,96 @@ with tab3:
         )
         st.plotly_chart(fig_scatter, use_container_width=True)
 
+    # Cohort Retention Matrix Heatmap
+    st.markdown("---")
+    st.subheader("📅 Monthly Customer Cohort Retention Analysis")
+    cohort_path = os.path.join(GOLD_DIR, "gold_cohort_retention.parquet")
+    if os.path.exists(cohort_path):
+        df_cohort = pd.read_parquet(cohort_path)
+        cohort_pivot = df_cohort.pivot(index="cohort_month", columns="period_number", values="retention_rate_pct")
+        cohort_pivot = cohort_pivot.sort_index(ascending=False)
+        col_names = [f"Month {int(c)}" for c in cohort_pivot.columns]
+
+        fig_cohort = px.imshow(
+            cohort_pivot.values,
+            x=col_names,
+            y=[str(idx) for idx in cohort_pivot.index],
+            labels=dict(x="Time Since Acquisition", y="Acquisition Cohort", color="Retention (%)"),
+            color_continuous_scale="Viridis",
+            text_auto=".1f",
+            aspect="auto"
+        )
+        fig_cohort.update_layout(
+            title="Monthly Customer Cohort Retention Heatmap (%)",
+            xaxis_title="Cohort Age (Months Since First Order)",
+            yaxis_title="Acquisition Month",
+            height=340
+        )
+        st.plotly_chart(fig_cohort, use_container_width=True)
+
+        m1_vals = df_cohort[df_cohort["period_number"] == 1]["retention_rate_pct"]
+        m2_vals = df_cohort[df_cohort["period_number"] == 2]["retention_rate_pct"]
+        s1, s2, s3 = st.columns(3)
+        with s1:
+            st.metric("Total Tracked Cohorts", f"{df_cohort['cohort_month'].nunique()} cohorts")
+        with s2:
+            st.metric("Avg Month 1 Retention", f"{m1_vals.mean():.1f}%" if len(m1_vals) > 0 else "N/A")
+        with s3:
+            st.metric("Avg Month 2 Retention", f"{m2_vals.mean():.1f}%" if len(m2_vals) > 0 else "N/A")
+
+    # Customer Lifetime Value (LTV) Analytics
+    st.markdown("---")
+    st.subheader("💰 Customer Lifetime Value (LTV) Distribution")
+    ltv_c1, ltv_c2 = st.columns(2)
+    with ltv_c1:
+        avg_ltv_tier = df_features.groupby("loyalty_tier")["total_monetary_spend"].mean().reset_index()
+        fig_ltv_tier = px.bar(
+            avg_ltv_tier, x="loyalty_tier", y="total_monetary_spend",
+            title="Average Lifetime Value by Loyalty Tier ($)",
+            labels={"loyalty_tier": "Loyalty Tier", "total_monetary_spend": "Average Spend ($)"},
+            color="total_monetary_spend", color_continuous_scale="Blues"
+        )
+        st.plotly_chart(fig_ltv_tier, use_container_width=True)
+    with ltv_c2:
+        fig_ltv_hist = px.histogram(
+            df_features, x="total_monetary_spend", nbins=20,
+            title="Customer Lifetime Value Distribution ($)",
+            labels={"total_monetary_spend": "Customer Lifetime Value ($)"},
+            color_discrete_sequence=["#7E57C2"]
+        )
+        st.plotly_chart(fig_ltv_hist, use_container_width=True)
+
 # -------------------------------------------------------------
 # TAB 4: LIVE MACHINE LEARNING PREDICTOR
 # -------------------------------------------------------------
 with tab4:
-    st.subheader("Customer Churn Risk & Retention Intelligence")
+    st.subheader("Customer Churn Risk & Lifetime Value (LTV) Intelligence")
 
-    # Load ML Metadata
+    # Load ML Metadata for Churn and LTV
     meta_path = os.path.join(MODELS_DIR, "model_metadata.json")
+    ltv_meta_path = os.path.join(MODELS_DIR, "ltv_model_metadata.json")
+
     if os.path.exists(meta_path):
         with open(meta_path, "r") as f:
             ml_meta = json.load(f)
-        
+
+        st.markdown("#### 🎯 Churn Classifier Metrics")
         m1, m2, m3, m4, m5 = st.columns(5)
         m1.metric("ROC-AUC Score", f"{ml_meta['metrics']['roc_auc']:.4f}")
         m2.metric("5-Fold CV AUC", f"{ml_meta['metrics']['cv_roc_auc_mean']:.4f}")
         m3.metric("Precision", f"{ml_meta['metrics']['precision']:.4f}")
         m4.metric("Recall", f"{ml_meta['metrics']['recall']:.4f}")
         m5.metric("F1-Score", f"{ml_meta['metrics']['f1_score']:.4f}")
+
+        if os.path.exists(ltv_meta_path):
+            with open(ltv_meta_path, "r") as f:
+                ltv_meta = json.load(f)
+            st.markdown("#### 📈 Lifetime Value (LTV) Regressor Metrics")
+            lm1, lm2, lm3, lm4 = st.columns(4)
+            lm1.metric("LTV R² Score", f"{ltv_meta['metrics']['r2_score']:.4f}")
+            lm2.metric("Mean Absolute Error (MAE)", f"${ltv_meta['metrics']['mae']:,.2f}")
+            lm3.metric("Root Mean Squared Error", f"${ltv_meta['metrics']['rmse']:,.2f}")
+            lm4.metric("5-Fold CV R²", f"{ltv_meta['metrics']['cv_r2_mean']:.4f}")
 
         st.markdown("---")
         
@@ -304,7 +381,7 @@ with tab4:
             st.plotly_chart(fig_imp, use_container_width=True)
 
         with ml_col2:
-            st.markdown("### 🎛️ Live Customer Risk Simulator")
+            st.markdown("### 🎛️ Live Customer Risk & LTV Simulator")
             with st.form("churn_simulator_form"):
                 fc1, fc2 = st.columns(2)
                 with fc1:
@@ -318,10 +395,10 @@ with tab4:
                     sim_tier = st.selectbox("Loyalty Tier", ["Regular", "Silver", "Gold", "Platinum"])
                     sim_region = st.selectbox("Region", ["Western", "Central", "Southern", "North Western", "Northern"])
                 
-                sim_submit = st.form_submit_button("🔮 Predict Customer Churn Risk", type="primary", use_container_width=True)
+                sim_submit = st.form_submit_button("🔮 Predict Customer Churn & Lifetime Value", type="primary", use_container_width=True)
 
             if sim_submit:
-                ml_engine = CustomerChurnMLModel(GOLD_DIR, MODELS_DIR)
+                churn_engine = CustomerChurnMLModel(GOLD_DIR, MODELS_DIR)
                 input_payload = {
                     "frequency": sim_freq,
                     "total_monetary_spend": sim_spend,
@@ -334,20 +411,28 @@ with tab4:
                     "region": sim_region,
                     "loyalty_tier": sim_tier
                 }
-                pred_result = ml_engine.predict_single_customer(input_payload)
+                pred_result = churn_engine.predict_single_customer(input_payload)
                 churn_prob = pred_result["churn_risk_probability"]
 
-                if churn_prob >= 0.60:
-                    st.error(f"🚨 **High Churn Risk!** Probability: **{churn_prob*100:.1f}%**")
-                    st.warning("💡 **Actionable Recommendation:** Send an automated 15% win-back discount or customer care follow-up.")
-                elif churn_prob >= 0.35:
-                    st.warning(f"⚠️ **Moderate Churn Risk.** Probability: **{churn_prob*100:.1f}%**")
-                    st.info("💡 **Actionable Recommendation:** Enroll into loyalty points acceleration program.")
-                else:
-                    st.success(f"✅ **Low Churn Risk / Highly Engaged!** Probability: **{churn_prob*100:.1f}%**")
-                    st.info("💡 **Actionable Recommendation:** Eligible for premium upsell campaigns.")
+                ltv_engine = CustomerLTVMLModel(GOLD_DIR, MODELS_DIR)
+                pred_ltv = ltv_engine.predict_single_customer_ltv(input_payload)
+
+                res_c1, res_c2 = st.columns(2)
+                with res_c1:
+                    if churn_prob >= 0.60:
+                        st.error(f"🚨 **High Churn Risk!** Probability: **{churn_prob*100:.1f}%**")
+                        st.warning("💡 **Actionable Recommendation:** Send an automated 15% win-back discount or customer care follow-up.")
+                    elif churn_prob >= 0.35:
+                        st.warning(f"⚠️ **Moderate Churn Risk.** Probability: **{churn_prob*100:.1f}%**")
+                        st.info("💡 **Actionable Recommendation:** Enroll into loyalty points acceleration program.")
+                    else:
+                        st.success(f"✅ **Low Churn Risk / Highly Engaged!** Probability: **{churn_prob*100:.1f}%**")
+                        st.info("💡 **Actionable Recommendation:** Eligible for premium upsell campaigns.")
+
+                with res_c2:
+                    st.metric("💎 Predicted Customer Lifetime Value (LTV)", f"${pred_ltv['predicted_ltv']:,.2f}")
     else:
-        st.warning("Train the machine learning model first by running the pipeline.")
+        st.warning("Train the machine learning models first by running the pipeline.")
 
 # Footer
 st.markdown("---")
