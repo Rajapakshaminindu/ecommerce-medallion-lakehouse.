@@ -13,6 +13,7 @@ from src.pipeline_gold import GoldPipeline
 from src.ml_model import CustomerChurnMLModel, CustomerLTVMLModel
 from src.data_generator import generate_synthetic_dataset
 from src.run_pipeline import parse_args
+from src.predict_batch import BatchScoringEngine, parse_args as parse_batch_args
 
 class TestMedallionPipeline(unittest.TestCase):
     @classmethod
@@ -158,6 +159,51 @@ class TestMedallionPipeline(unittest.TestCase):
         self.assertEqual(args_custom.seed, 99)
         self.assertTrue(args_custom.skip_generation)
         self.assertEqual(args_custom.output_dir, "custom_data_path")
+
+    def test_batch_scoring_engine(self):
+        """Test Batch Scoring Engine calculates churn probabilities, LTV, and revenue at risk."""
+        engine = BatchScoringEngine(gold_dir=self.gold_dir, models_dir=self.models_dir)
+        df_scored = engine.run_batch_scoring(threshold=0.50)
+
+        # 1. Output file persistence
+        scored_path = os.path.join(self.gold_dir, "gold_customer_churn_predictions.parquet")
+        self.assertTrue(os.path.exists(scored_path))
+
+        # 2. Required columns existence
+        expected_cols = [
+            "churn_risk_probability", "predicted_churn", "predicted_ltv",
+            "revenue_at_risk", "risk_tier", "recommended_action", "_scored_at"
+        ]
+        for col in expected_cols:
+            self.assertIn(col, df_scored.columns)
+
+        # 3. Numeric bounds & tier sanity
+        self.assertTrue((df_scored["churn_risk_probability"] >= 0.0).all())
+        self.assertTrue((df_scored["churn_risk_probability"] <= 1.0).all())
+        self.assertTrue((df_scored["predicted_ltv"] >= 0.0).all())
+        self.assertTrue((df_scored["revenue_at_risk"] >= 0.0).all())
+        valid_tiers = {"Critical Risk", "Moderate Risk", "Low Risk"}
+        self.assertTrue(set(df_scored["risk_tier"].unique()).issubset(valid_tiers))
+
+        # 4. CRM CSV export verification
+        csv_export = engine.export_retention_action_list(df_scored)
+        self.assertTrue(os.path.exists(csv_export))
+        df_csv = pd.read_csv(csv_export)
+        if len(df_csv) > 0:
+            self.assertTrue((df_csv["churn_risk_probability"] >= 0.35).all())
+
+    def test_batch_cli_arguments(self):
+        """Test CLI argument parsing for Batch Scoring Engine."""
+        args_default = parse_batch_args([])
+        self.assertEqual(args_default.threshold, 0.50)
+        self.assertEqual(args_default.top_at_risk, 10)
+        self.assertIsNone(args_default.export_csv)
+
+        custom_args = ["--threshold", "0.65", "--top-at-risk", "25", "--export-csv", "test_action.csv"]
+        args_custom = parse_batch_args(custom_args)
+        self.assertEqual(args_custom.threshold, 0.65)
+        self.assertEqual(args_custom.top_at_risk, 25)
+        self.assertEqual(args_custom.export_csv, "test_action.csv")
 
 if __name__ == "__main__":
     unittest.main()

@@ -32,6 +32,7 @@ MODELS_DIR = os.path.join(BASE_DIR, "models")
 
 from src.run_pipeline import run_full_lakehouse_pipeline
 from src.ml_model import CustomerChurnMLModel, CustomerLTVMLModel
+from src.predict_batch import BatchScoringEngine
 
 # Custom CSS for modern styling
 st.markdown("""
@@ -121,11 +122,12 @@ except Exception as e:
 st.markdown("---")
 
 # Main Tabs
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🏗️ Pipeline Architecture & Flow",
     "🔍 Lakehouse Layer Explorer",
     "📊 Executive KPI Analytics",
-    "🤖 Live Machine Learning Predictor"
+    "🤖 Live Machine Learning Predictor",
+    "🎯 Retention Action Center & CRM Export"
 ])
 
 # -------------------------------------------------------------
@@ -223,7 +225,8 @@ with tab2:
             "gold_kpi_daily_revenue.parquet",
             "gold_kpi_category_performance.parquet",
             "gold_customer_ml_feature_store.parquet",
-            "gold_cohort_retention.parquet"
+            "gold_cohort_retention.parquet",
+            "gold_customer_churn_predictions.parquet"
         ])
         df_view = pd.read_parquet(os.path.join(GOLD_DIR, table_pick))
         st.markdown(f"**Viewing `{table_pick}`** ({len(df_view)} rows, {len(df_view.columns)} columns)")
@@ -433,6 +436,105 @@ with tab4:
                     st.metric("💎 Predicted Customer Lifetime Value (LTV)", f"${pred_ltv['predicted_ltv']:,.2f}")
     else:
         st.warning("Train the machine learning models first by running the pipeline.")
+
+# -------------------------------------------------------------
+# TAB 5: RETENTION ACTION CENTER & CRM EXPORT
+# -------------------------------------------------------------
+with tab5:
+    st.subheader("🎯 Customer Retention Prioritization & Revenue-at-Risk Engine")
+    st.markdown("Automated batch inference across the Gold Feature Store ranking high-value accounts facing churn risk.")
+
+    predictions_path = os.path.join(GOLD_DIR, "gold_customer_churn_predictions.parquet")
+    if not os.path.exists(predictions_path):
+        with st.spinner("⚡ Running first-time Batch Scoring Engine..."):
+            scoring_engine = BatchScoringEngine(gold_dir=GOLD_DIR, models_dir=MODELS_DIR)
+            df_scored = scoring_engine.run_batch_scoring()
+    else:
+        df_scored = pd.read_parquet(predictions_path)
+
+    # Top KPI Metrics
+    crit_count = int((df_scored["risk_tier"] == "Critical Risk").sum())
+    mod_count = int((df_scored["risk_tier"] == "Moderate Risk").sum())
+    low_count = int((df_scored["risk_tier"] == "Low Risk").sum())
+    total_rev_risk = float(df_scored["revenue_at_risk"].sum())
+    vip_interventions = int(((df_scored["risk_tier"] == "Critical Risk") & (df_scored["predicted_ltv"] >= 500)).sum())
+
+    rc1, rc2, rc3, rc4 = st.columns(4)
+    with rc1:
+        st.metric("Total Scored Customers", f"{len(df_scored):,}", delta="Gold ML Store")
+    with rc2:
+        st.metric("Critical Churn Risk (≥60%)", f"{crit_count:,}", delta=f"{round(crit_count/len(df_scored)*100, 1)}% of base", delta_color="inverse")
+    with rc3:
+        st.metric("Total Revenue at Risk", f"${total_rev_risk:,.2f}", delta="Expected Lost Value", delta_color="inverse")
+    with rc4:
+        st.metric("VIP Priority Interventions", f"{vip_interventions:,}", delta="High LTV & Churn", delta_color="inverse")
+
+    st.markdown("---")
+
+    # Visual Analytics
+    r_col1, r_col2 = st.columns(2)
+    with r_col1:
+        rev_by_tier = df_scored.groupby("loyalty_tier")["revenue_at_risk"].sum().reset_index()
+        fig_rev_tier = px.bar(
+            rev_by_tier, x="loyalty_tier", y="revenue_at_risk",
+            title="Total Revenue at Risk by Loyalty Tier ($)",
+            labels={"loyalty_tier": "Loyalty Tier", "revenue_at_risk": "Revenue at Risk ($)"},
+            color="revenue_at_risk", color_continuous_scale="Reds"
+        )
+        st.plotly_chart(fig_rev_tier, use_container_width=True)
+
+    with r_col2:
+        tier_counts = pd.DataFrame({
+            "Risk Tier": ["Critical Risk", "Moderate Risk", "Low Risk"],
+            "Count": [crit_count, mod_count, low_count]
+        })
+        fig_risk_pie = px.pie(
+            tier_counts, names="Risk Tier", values="Count",
+            title="Customer Base Risk Segmentation",
+            hole=0.45,
+            color="Risk Tier",
+            color_discrete_map={"Critical Risk": "#D32F2F", "Moderate Risk": "#FFA000", "Low Risk": "#2E7D32"}
+        )
+        st.plotly_chart(fig_risk_pie, use_container_width=True)
+
+    st.markdown("---")
+    st.markdown("### 📋 Targeted Retention Intervention List")
+
+    # Interactive Table Filters
+    f_col1, f_col2, f_col3 = st.columns([1, 1, 2])
+    with f_col1:
+        risk_options = ["All"] + list(df_scored["risk_tier"].unique())
+        selected_risk = st.selectbox("Filter by Risk Tier:", risk_options, index=0)
+    with f_col2:
+        tier_options = ["All"] + list(df_scored["loyalty_tier"].unique())
+        selected_tier = st.selectbox("Filter by Loyalty Tier:", tier_options, index=0)
+    with f_col3:
+        search_query = st.text_input("🔍 Search Customer ID:", placeholder="e.g. CUST_0016")
+
+    df_filtered = df_scored.copy()
+    if selected_risk != "All":
+        df_filtered = df_filtered[df_filtered["risk_tier"] == selected_risk]
+    if selected_tier != "All":
+        df_filtered = df_filtered[df_filtered["loyalty_tier"] == selected_tier]
+    if search_query.strip():
+        df_filtered = df_filtered[df_filtered["customer_id"].str.contains(search_query.strip(), case=False, na=False)]
+
+    display_cols = [
+        "customer_id", "loyalty_tier", "region", "total_monetary_spend",
+        "recency_days", "churn_risk_probability", "predicted_ltv",
+        "revenue_at_risk", "risk_tier", "recommended_action"
+    ]
+    st.dataframe(df_filtered[display_cols], use_container_width=True)
+
+    # Download Button for CRM Campaign Export
+    csv_bytes = df_filtered[display_cols].to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label="📥 Download Filtered Retention Action List (CSV)",
+        data=csv_bytes,
+        file_name="customer_retention_action_campaign.csv",
+        mime="text/csv",
+        type="primary"
+    )
 
 # Footer
 st.markdown("---")
