@@ -1,0 +1,91 @@
+{
+    "metrics": {
+        "r2_score": 0.5903,
+        "mae": 207.66,
+        "rmse": 254.01,
+        "cv_r2_mean": 0.712,
+        "cv_r2_std": 0.1429,
+        "total_samples": 49,
+        "train_samples": 36,
+        "test_samples": 13
+    },
+    "feature_importance": [
+        {
+            "feature": "total_units_purchased",
+            "importance": 0.5312
+        },
+        {
+            "feature": "avg_order_value",
+            "importance": 0.3275
+        },
+        {
+            "feature": "frequency",
+            "importance": 0.0412
+        },
+        {
+            "feature": "recency_days",
+            "importance": 0.0359
+        },
+        {
+            "feature": "region_Central",
+            "importance": 0.0205
+        },
+        {
+            "feature": "customer_age",
+            "importance": 0.0177
+        },
+        {
+            "feature": "customer_tenure_days",
+            "importance": 0.0118
+        },
+        {
+            "feature": "return_rate_pct",
+            "importance": 0.0034
+        },
+        {
+            "feature": "region_Southern",
+            "importance": 0.0034
+        },
+        {
+            "feature": "region_North Western",
+            "importance": 0.0019
+        },
+        {
+            "feature": "region_Northern",
+            "importance": 0.0015
+        },
+        {
+            "feature": "region_Western",
+            "importance": 0.0014
+        },
+        {
+            "feature": "loyalty_tier_Platinum",
+            "importance": 0.0009
+        },
+        {
+            "feature": "loyalty_tier_Silver",
+            "importance": 0.0007
+        },
+        {
+            "feature": "loyalty_tier_Gold",
+            "importance": 0.0007
+        },
+        {
+            "feature": "loyalty_tier_Regular",
+            "importance": 0.0004
+        }
+    ],
+    "numeric_features": [
+        "frequency",
+        "avg_order_value",
+        "total_units_purchased",
+        "return_rate_pct",
+        "recency_days",
+        "customer_tenure_days",
+        "customer_age"
+    ],
+    "categorical_features": [
+        "region",
+        "loyalty_tier"
+    ]
+}

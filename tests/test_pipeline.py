@@ -10,8 +10,9 @@ import numpy as np
 from src.pipeline_bronze import BronzePipeline
 from src.pipeline_silver import SilverPipeline
 from src.pipeline_gold import GoldPipeline
-from src.ml_model import CustomerChurnMLModel
+from src.ml_model import CustomerChurnMLModel, CustomerLTVMLModel
 from src.data_generator import generate_synthetic_dataset
+from src.run_pipeline import parse_args
 
 class TestMedallionPipeline(unittest.TestCase):
     @classmethod
@@ -30,6 +31,8 @@ class TestMedallionPipeline(unittest.TestCase):
         GoldPipeline(cls.silver_dir, cls.gold_dir).run()
         cls.ml = CustomerChurnMLModel(cls.gold_dir, cls.models_dir)
         cls.ml.train_and_evaluate()
+        cls.ltv_ml = CustomerLTVMLModel(cls.gold_dir, cls.models_dir)
+        cls.ltv_ml.train_and_evaluate()
 
     def test_bronze_metadata_exists(self):
         """Test Bronze layer attaches required audit columns."""
@@ -72,6 +75,26 @@ class TestMedallionPipeline(unittest.TestCase):
         self.assertIn("frequency", df_rfm.columns)
         self.assertIn("total_monetary_spend", df_rfm.columns)
         self.assertIn("is_churn_risk", df_rfm.columns)
+        self.assertIn("customer_ltv", df_rfm.columns)
+
+    def test_gold_cohort_retention_table(self):
+        """Test Gold layer produces valid cohort retention matrix."""
+        cohort_path = os.path.join(self.gold_dir, "gold_cohort_retention.parquet")
+        self.assertTrue(os.path.exists(cohort_path))
+        df_cohort = pd.read_parquet(cohort_path)
+        self.assertGreater(len(df_cohort), 0)
+        self.assertIn("cohort_month", df_cohort.columns)
+        self.assertIn("period_number", df_cohort.columns)
+        self.assertIn("active_customers", df_cohort.columns)
+        self.assertIn("cohort_size", df_cohort.columns)
+        self.assertIn("retention_rate_pct", df_cohort.columns)
+
+        # Period 0 retention must be 100%
+        period_zero = df_cohort[df_cohort["period_number"] == 0]
+        self.assertTrue((period_zero["retention_rate_pct"] == 100.0).all())
+        # All retention rates must be between 0% and 100%
+        self.assertTrue((df_cohort["retention_rate_pct"] >= 0.0).all())
+        self.assertTrue((df_cohort["retention_rate_pct"] <= 100.0).all())
 
     def test_ml_model_prediction(self):
         """Test Machine Learning model loads and predicts valid probability."""
@@ -92,6 +115,49 @@ class TestMedallionPipeline(unittest.TestCase):
         self.assertGreaterEqual(res["churn_risk_probability"], 0.0)
         self.assertLessEqual(res["churn_risk_probability"], 1.0)
         self.assertIn(res["is_churn_risk"], [0, 1])
+
+    def test_ltv_model_prediction(self):
+        """Test Lifetime Value regression model produces non-negative dollar prediction."""
+        sample_customer = {
+            "frequency": 4,
+            "avg_order_value": 120.0,
+            "total_units_purchased": 8,
+            "return_rate_pct": 5.0,
+            "recency_days": 30,
+            "customer_tenure_days": 180,
+            "customer_age": 42,
+            "region": "Central",
+            "loyalty_tier": "Gold"
+        }
+        res = self.ltv_ml.predict_single_customer_ltv(sample_customer)
+        self.assertIn("predicted_ltv", res)
+        self.assertIsInstance(res["predicted_ltv"], float)
+        self.assertGreaterEqual(res["predicted_ltv"], 0.0)
+
+    def test_cli_argument_parsing(self):
+        """Test CLI arguments parser for pipeline orchestrator."""
+        # 1. Default arguments
+        args_default = parse_args([])
+        self.assertEqual(args_default.customers, 300)
+        self.assertEqual(args_default.orders, 2000)
+        self.assertEqual(args_default.seed, 42)
+        self.assertFalse(args_default.skip_generation)
+        self.assertIsNone(args_data_dir := args_default.output_dir)
+
+        # 2. Custom flag arguments
+        custom_args = [
+            "--customers", "500",
+            "--orders", "3500",
+            "--seed", "99",
+            "--skip-generation",
+            "--output-dir", "custom_data_path"
+        ]
+        args_custom = parse_args(custom_args)
+        self.assertEqual(args_custom.customers, 500)
+        self.assertEqual(args_custom.orders, 3500)
+        self.assertEqual(args_custom.seed, 99)
+        self.assertTrue(args_custom.skip_generation)
+        self.assertEqual(args_custom.output_dir, "custom_data_path")
 
 if __name__ == "__main__":
     unittest.main()
