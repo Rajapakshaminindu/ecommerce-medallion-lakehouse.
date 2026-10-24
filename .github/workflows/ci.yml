@@ -42,3 +42,8 @@ jobs:
       - name: Run Lakehouse Unit Tests
         run: |
           python -m unittest discover tests -v
+
+      - name: End-to-End Pipeline & Batch Scoring Smoke Test
+        run: |
+          python src/run_pipeline.py --customers 50 --orders 250 --seed 42
+          python src/predict_batch.py --threshold 0.50 --top-at-risk 5

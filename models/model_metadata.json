@@ -7,73 +7,77 @@
         "roc_auc": 1.0,
         "cv_roc_auc_mean": 1.0,
         "cv_roc_auc_std": 0.0,
-        "total_samples": 49,
-        "train_samples": 36,
+        "total_samples": 50,
+        "train_samples": 37,
         "test_samples": 13
     },
     "feature_importance": [
         {
             "feature": "recency_days",
-            "importance": 0.4375
-        },
-        {
-            "feature": "total_monetary_spend",
-            "importance": 0.1401
-        },
-        {
-            "feature": "total_units_purchased",
-            "importance": 0.1311
-        },
-        {
-            "feature": "avg_order_value",
-            "importance": 0.0724
-        },
-        {
-            "feature": "customer_age",
-            "importance": 0.0587
-        },
-        {
-            "feature": "region_North Western",
-            "importance": 0.0485
-        },
-        {
-            "feature": "customer_tenure_days",
-            "importance": 0.0479
+            "importance": 0.4198
         },
         {
             "feature": "frequency",
-            "importance": 0.0359
+            "importance": 0.1207
         },
         {
-            "feature": "region_Northern",
-            "importance": 0.0089
+            "feature": "total_monetary_spend",
+            "importance": 0.1205
         },
         {
-            "feature": "loyalty_tier_Regular",
-            "importance": 0.0057
+            "feature": "total_units_purchased",
+            "importance": 0.1059
         },
         {
-            "feature": "return_rate_pct",
-            "importance": 0.0041
+            "feature": "avg_order_value",
+            "importance": 0.0665
         },
         {
-            "feature": "loyalty_tier_Silver",
-            "importance": 0.0035
+            "feature": "customer_age",
+            "importance": 0.0384
         },
         {
-            "feature": "region_Western",
-            "importance": 0.0032
+            "feature": "region_North Western",
+            "importance": 0.0297
         },
         {
-            "feature": "loyalty_tier_Gold",
-            "importance": 0.002
+            "feature": "customer_tenure_days",
+            "importance": 0.0255
         },
         {
             "feature": "region_Central",
-            "importance": 0.0004
+            "importance": 0.017
+        },
+        {
+            "feature": "region_Western",
+            "importance": 0.0168
+        },
+        {
+            "feature": "region_Northern",
+            "importance": 0.012
         },
         {
             "feature": "region_Southern",
+            "importance": 0.0079
+        },
+        {
+            "feature": "return_rate_pct",
+            "importance": 0.0076
+        },
+        {
+            "feature": "loyalty_tier_Silver",
+            "importance": 0.0049
+        },
+        {
+            "feature": "loyalty_tier_Gold",
+            "importance": 0.0042
+        },
+        {
+            "feature": "loyalty_tier_Regular",
+            "importance": 0.0026
+        },
+        {
+            "feature": "loyalty_tier_Platinum",
             "importance": 0.0
         }
     ],
