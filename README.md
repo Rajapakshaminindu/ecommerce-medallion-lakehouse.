@@ -13,7 +13,7 @@ This project demonstrates production-grade data engineering, automated schema va
 
 ---
 
-## 🎯 Architecture Overview
+## 🎯 <<Architecture Overview>>
 
 ```mermaid
 flowchart LR
